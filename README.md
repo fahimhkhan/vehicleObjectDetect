@@ -1,10 +1,10 @@
 # Vehicle Object Detection
 
-Python 3.7 is required. It is recommended to create a new anaconda virtual environment using the follwoing command.
+Python 3.7 is required. It is recommended to create a new anaconda virtual environment using the following command.
 
 ```conda create -n vehicleobj pip python=3.7```
 
-Activate the virtual environment using the follwoing command.
+Activate the virtual environment using the following command.
 
 ```conda activate vehicleobj```
 
