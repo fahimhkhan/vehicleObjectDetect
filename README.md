@@ -1,4 +1,4 @@
-# vehicleObjectDetect
+# Vehicle Object Detection
 
 Python 3.7 is required. It is recommended to create a new anaconda virtual environment using the follwoing command.
 
