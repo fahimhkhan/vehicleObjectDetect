@@ -1,6 +1,6 @@
 import numpy as np
 import pathlib
-# use "pip install tensorflow==1.15.1" for installation
+# use "pip install tensorflow==1.15" for installation
 import tensorflow as tf
 # use "pip install opencv-python" for installation
 import cv2
@@ -14,7 +14,8 @@ import time
 # use "pip install PyQt5" for installation
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QFileDialog, QInputDialog, QLineEdit, QComboBox, QVBoxLayout, QPushButton
+#from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QFileDialog, QInputDialog, QLineEdit, QComboBox, QVBoxLayout, QPushButton
+from PyQt5.QtWidgets import QFileDialog
 
 vehicleObj = ["person", "bicycle", "car", "motorcycle", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter"]
 
@@ -23,7 +24,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
     
         super().__init__(*args, **kwargs)
-        self.setWindowTitle("Citizen Science ML App Maker - Main Menu")
+        self.setWindowTitle("Main Menu")
         
         uic.loadUi("vehicleObjectDetect.ui", self)
         
@@ -31,13 +32,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.videofileButton.clicked.connect(self.button2_clicked)
         
     def button1_clicked(self):
-        self.message.setPlainText("Processing video feed from webcam and showing preview. Click on preview window or press any key to stop.")
+        self.message.setPlainText("Processing video feed from webcam and showing preview. Saving output video to the directory outputVideos. Click on preview window or press any key to stop.")
         runML(0)
         
     def button2_clicked(self):
         fname = QFileDialog.getOpenFileName(self, "Open file", "","Video files (*.mp4 *.avi *.mov)")
         print(fname[0])
-        self.message.setPlainText("Processing video file " + fname[0] + " and showing preview. Click on preview window or press any key to stop.")
+        self.message.setPlainText("Processing video file " + fname[0] + " and showing preview. Saving output video to the directory outputVideos. Click on preview window or press any key to stop.")
         runML(fname[0])
  
 def load_labels(filename):
@@ -84,9 +85,17 @@ def runML(source):
     cv2.namedWindow('PreviewWindow')
     cv2.setMouseCallback('PreviewWindow', onMouse)
 
+    try:
+        if not os.path.exists('outputVideos'):
+            os.makedirs('outputVideos')
+
+    # if not created then raise error
+    except OSError:
+        print('Error: Creating directory of outputVideos')
+
     dest = "outputVideos/" + str(ts) + ".avi"
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(dest, fourcc, 10.0, (1280, 720))
+    out = cv2.VideoWriter(dest, fourcc, 20.0, (1280, 720))
 
     frame = 0
     print('Showing preview. Click on preview window or press any key to stop.')
@@ -112,9 +121,6 @@ def runML(source):
             output_img = cv2.resize(img, (1280, 720))
             out.write(output_img)
             cv2.imshow('PreviewWindow', output_img)
-            # k = cv2.waitKey(10) & 0xff
-            # if k == 27:
-            #     break
         else:
             break
 
