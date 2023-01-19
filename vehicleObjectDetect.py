@@ -7,7 +7,7 @@ Created on Thu Oct 24 00:29:08 2022
 
 import numpy as np
 import pathlib
-# use "pip install tensorflow==1.15" for installation
+# use "pip install tensorflow" for installation
 import tensorflow as tf
 # use "pip install opencv-python" for installation
 import cv2
@@ -23,8 +23,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5 import uic
 #from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QFileDialog, QInputDialog, QLineEdit, QComboBox, QVBoxLayout, QPushButton
 from PyQt5.QtWidgets import QFileDialog
-
-vehicleObj = ["person", "bicycle", "car", "motorcycle", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter"]
 
 class MainWindow(QtWidgets.QMainWindow):
 
@@ -55,18 +53,6 @@ def load_labels(filename):
         my_labels.append(l.strip())
     return my_labels
 
-def draw_rect(image, box, label_string, conf_score):
-    h, w, _ = image.shape
-    y_min = int(max(1, (box[0] * h)))
-    x_min = int(max(1, (box[1] * w)))
-    y_max = int(min(h, (box[2] * h)))
-    x_max = int(min(w, (box[3] * w)))
-
-    # draw a rectangle on the image
-    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 0, 255), 2)
-    label = label_string + ": {:.2f}%".format(conf_score * 100)
-    cv2.putText(image, label, (x_min, y_min + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-
 clicked = False
 def onMouse(event, x, y, flags, param):
     global clicked
@@ -74,20 +60,18 @@ def onMouse(event, x, y, flags, param):
         clicked = True
 
 def runML(source):
-    interpreter = tf.lite.Interpreter(model_path="models/mobilenetV2.tflite")
-    labels = load_labels("models/labels.txt")
+    detector = tf.saved_model.load("saved_model/0")
+    labels = load_labels("saved_model/labelmap.txt")
+    # detector = tf.saved_model.load("2")
+    # labels = load_labels("2/labels.txt")
+    # detector = tf.saved_model.load("1")
+    # labels = load_labels("1/labels.txt")
 
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-
-    print(input_details)
-    print(output_details)
-
-    interpreter.allocate_tensors()
+    width = 480
+    height = 480
 
     ts = time.time()
 
-    # cap = cv2.VideoCapture("inputs/waymo.avi")
     cap = cv2.VideoCapture(source)
     cv2.namedWindow('PreviewWindow')
     cv2.setMouseCallback('PreviewWindow', onMouse)
@@ -106,28 +90,53 @@ def runML(source):
 
     frame = 0
     print('Showing preview. Click on preview window or press any key to stop.')
-    ret, img = cap.read()
-    while cv2.waitKey(1) is -1 and not clicked:
-        ret, img = cap.read()
+    ret, frame = cap.read()
+    while cv2.waitKey(1) == -1 and not clicked:
+        ret, frame = cap.read()
         if ret == True:
-            new_img = cv2.resize(img, (300, 300))
-            interpreter.set_tensor(input_details[0]['index'], [new_img])
+            inp = cv2.resize(frame, (width , height))
 
-            interpreter.invoke()
-            rects = interpreter.get_tensor(output_details[0]['index'])
-            classes = interpreter.get_tensor(output_details[1]['index'])
-            scores = interpreter.get_tensor(output_details[2]['index'])
+            #Convert img to RGB
+            #rgb = cv2.cvtColor(inp, cv2.COLOR_BGR2RGB)
+            rgb = inp
+            #img_boxes = inp
 
-            for index, score in enumerate(scores[0]):
-                idx = int(classes[0][index]) + 1
-                lbl = labels[idx]
-                if score > 0.5 and lbl in vehicleObj:
-                    # print(ctr, file.name, score, lbl)
-                    draw_rect(img, rects[0][index], lbl, score)
+            #Is optional but i recommend (float convertion and convert img to tensor image)
+            rgb_tensor = tf.convert_to_tensor(rgb, dtype=tf.uint8)
 
-            output_img = cv2.resize(img, (1280, 720))
-            out.write(output_img)
-            cv2.imshow('PreviewWindow', output_img)
+            #Add dims to rgb_tensor
+            rgb_tensor = tf.expand_dims(rgb_tensor , 0)
+            
+            boxes, scores, classes, num_detections = detector(rgb_tensor)
+            
+            pred_labels = classes.numpy().astype('int')[0]
+            
+            pred_labels = [labels[i] for i in pred_labels]
+            pred_boxes = boxes.numpy()[0].astype('int')
+            pred_scores = scores.numpy()[0]
+        
+        #loop throughout the detections and place a box around it  
+            for score, (ymin,xmin,ymax,xmax), label in zip(pred_scores, pred_boxes, pred_labels):
+                if score < 0.5:
+                    continue
+
+                h, w, _ = frame.shape
+                
+                y_min = int(max(1, (ymin * (h/height))))
+                x_min = int(max(1, (xmin * (w/width))))
+                y_max = int(min(h, (ymax * (h/height))))
+                x_max = int(min(w, (xmax * (w/width))))
+                    
+                rgb = cv2.rectangle(frame,(x_min, y_max),(x_max, y_min),(0,0,255),2)      
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                txt = label + ": " + ": {:.2f}%".format(score * 100)
+                cv2.putText(rgb,txt,(x_min, y_max-10), font, 0.5, (0,255,0), 1, cv2.LINE_AA)
+                #cv2.putText(img_boxes,score_txt,(xmax, ymax-10), font, 0.5, (255,0,0), 1, cv2.LINE_AA)
+            
+            outp = cv2.resize(rgb, (1280, 720))
+            out.write(outp)
+            cv2.imshow('PreviewWindow', outp)
+            print('Showing preview. Click on preview window or press any key to stop.')
         else:
             break
 

@@ -1,8 +1,0 @@
-person
-car
-bus
-truck
-motorcycle
-bicycle
-stop sign
-traffic light
